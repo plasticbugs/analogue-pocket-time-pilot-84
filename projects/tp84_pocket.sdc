@@ -11,6 +11,16 @@
 # ==============================================================================
 
 # ==============================================================================
+# The two 6809s are clocked by E and Q rather than by clk_sys -- mc6809i has no
+# system clock input at all. Both are generated from clk_sys by a 32-count
+# divider, so declare them and keep them in the machine's clock group.
+# ==============================================================================
+create_generated_clock -name cpu_e -source [get_pins {ic|core_pll|core_pll_inst|altera_pll_i|general\[0\].gpll~PLL_OUTPUT_COUNTER|divclk}] \
+    -divide_by 32 [get_registers {*|tp84_main:u_main|cpu_e}]
+create_generated_clock -name cpu_q -source [get_pins {ic|core_pll|core_pll_inst|altera_pll_i|general\[0\].gpll~PLL_OUTPUT_COUNTER|divclk}] \
+    -divide_by 32 -phase 90 [get_registers {*|tp84_main:u_main|cpu_q}]
+
+# ==============================================================================
 # Clock groups
 #
 # core_pll general[0] = clk_sys       49.152 MHz (8x the dot clock)
@@ -60,12 +70,36 @@ set_clock_groups -asynchronous \
 set_multicycle_path -setup 6 -from [get_registers {*|tv80_core:*|*}] -to [get_registers {*|tv80_core:*|*}]
 set_multicycle_path -hold  5 -from [get_registers {*|tv80_core:*|*}] -to [get_registers {*|tv80_core:*|*}]
 
+
+
 # ==============================================================================
-# The two 6809s are clocked by E and Q rather than by clk_sys -- mc6809i has no
-# system clock input at all. Both are generated from clk_sys by a 32-count
-# divider, so declare them and keep them in the machine's clock group.
+# clk_sys <-> E/Q multicycle.
+#
+# E and Q are generated from clk_sys by a 32-count divider, so the timing
+# analyser pairs them at the tightest available edge -- one clk_sys period,
+# 20.3 ns -- for every path that crosses between the two domains. That is not
+# what the hardware does. A 6809 bus cycle is 32 clk_sys periods long:
+#
+#   * clk_sys -> E/Q is the registered read mux feeding the CPU's data bus. The
+#     address has been stable since the last E edge, so the value settles within
+#     a few clk_sys cycles and is then held until the CPU samples it 32 later.
+#   * E/Q -> clk_sys is the CPU's address and write data reaching the block RAM
+#     ports and the write strobe. The strobe fires at count 31, and the memories
+#     are only read back a full bus cycle later.
+#
+# 16 rather than 32: half the provable margin, which is ample relief and leaves
+# the constraint correct even if the divider is ever changed.
 # ==============================================================================
-create_generated_clock -name cpu_e -source [get_pins {ic|core_pll|core_pll_inst|altera_pll_i|general[0].gpll~PLL_OUTPUT_COUNTER|divclk}] \
-    -divide_by 32 [get_registers {*|tp84_main:u_main|cpu_e}]
-create_generated_clock -name cpu_q -source [get_pins {ic|core_pll|core_pll_inst|altera_pll_i|general[0].gpll~PLL_OUTPUT_COUNTER|divclk}] \
-    -divide_by 32 -phase 90 [get_registers {*|tp84_main:u_main|cpu_q}]
+# The brackets must be escaped. get_clocks matches with Tcl globbing, where
+# general[0] is a character class matching the single character "0" -- so the
+# unescaped pattern matches "general0..." and silently selects nothing. The
+# exceptions below were being dropped entirely, which is why two compiles gave
+# byte-identical slack.
+set CLKSYS {ic|core_pll|core_pll_inst|altera_pll_i|general\[0\].gpll~PLL_OUTPUT_COUNTER|divclk}
+
+set_multicycle_path -setup -end 16 -from [get_clocks $CLKSYS]      -to [get_clocks {cpu_e cpu_q}]
+set_multicycle_path -hold  -end 15 -from [get_clocks $CLKSYS]      -to [get_clocks {cpu_e cpu_q}]
+set_multicycle_path -setup -end 16 -from [get_clocks {cpu_e cpu_q}] -to [get_clocks $CLKSYS]
+set_multicycle_path -hold  -end 15 -from [get_clocks {cpu_e cpu_q}] -to [get_clocks $CLKSYS]
+set_multicycle_path -setup -end 16 -from [get_clocks {cpu_e cpu_q}] -to [get_clocks {cpu_e cpu_q}]
+set_multicycle_path -hold  -end 15 -from [get_clocks {cpu_e cpu_q}] -to [get_clocks {cpu_e cpu_q}]

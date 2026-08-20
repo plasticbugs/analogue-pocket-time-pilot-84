@@ -77,7 +77,42 @@ yet. What this gate can still prove is that both CPUs boot, run real code, and
 reach an identical machine state through the whole boot and attract sequence —
 and the frozen-state bench continues to prove the video path exactly.
 
-## 4. What still needs real hardware
+## 4. Synthesis
+
+`./build-local.sh map` is a one-minute check before every push; the full compile
+takes about fifteen.
+
+| resource | used | available |
+|---|---|---|
+| Logic (ALMs) | 6,657 | 18,480 (36%) |
+| RAM blocks | 118 | 308 (38%) |
+| DSP blocks | 15 | 66 (23%) |
+| PLLs | 2 | 4 |
+
+Timing closes with every corner positive, the worst at +0.127 ns.
+
+Two things had to be fixed to get there, and both were silent failures rather
+than errors.
+
+**The shared RAM did not infer.** The first fit came back at 126% logic with the
+2 KB shared RAM between the two 6809s realised as 31,568 ALUTs and 16,400
+flip-flops -- 73% of the design. An M10K in true dual-port mode cannot return
+the old contents on a write, so a read-old-data template falls back to logic the
+moment *both* ports write. Altera's write-through form, one always block per
+port, took the design from 45,771 logic cells to 13,801. Nothing here reads and
+writes the same port in the same cycle, so which data a port returns on its own
+write is unobservable.
+
+**The timing exceptions were being dropped.** `cpu_e` and `cpu_q` are generated
+from clk_sys by a 32-count divider, and the analyser was pairing them at
+essentially coincident edges -- the worst path reported a launch-to-latch
+relationship of 0.010 ns. The multicycle exceptions meant to fix that never
+applied, because `get_clocks` matches with Tcl globbing and `general[0]` is a
+character class matching the single character "0": the pattern selected nothing
+at all. Two compiles produced byte-identical slack before that was spotted; the
+brackets have to be escaped.
+
+## 5. What still needs real hardware
 
 Everything above is simulation. Not yet settled:
 
