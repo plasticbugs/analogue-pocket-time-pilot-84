@@ -218,10 +218,23 @@ module tp84_sound (
     tp84_rc u_f3 (.clk(clk), .reset(reset), .cen(cen_fs),
                   .k(sel3 ? K_470N : 13'd0), .din(sn3_o), .dout(f3));
 
+    // ------------------------------------------------- per-chip DC removal
+    // The chips are unipolar, so an active channel carries a standing offset
+    // of half its amplitude and that offset moves every time a channel starts
+    // or stops. Remove it per chip, after the RC network and before the mix:
+    // the RC filters then see exactly what MAME's filter_rc sees, while the
+    // Pocket's single downstream DC blocker is no longer left chasing a
+    // composite level that three chips move independently. The MiSTer core
+    // does the same thing with jt49_dcrm2, one instance per chip.
+    wire signed [15:0] d1, d2, d3;
+    tp84_dcrm u_d1 (.clk(clk), .reset(reset), .cen(cen_fs), .din(f1), .dout(d1));
+    tp84_dcrm u_d2 (.clk(clk), .reset(reset), .cen(cen_fs), .din(f2), .dout(d2));
+    tp84_dcrm u_d3 (.clk(clk), .reset(reset), .cen(cen_fs), .din(f3), .dout(d3));
+
     // ------------------------------------------------------------------ mix
     logic signed [17:0] mix;
     always_ff @(posedge clk) if (cen_fs)
-        mix <= {{2{f1[15]}}, f1} + {{2{f2[15]}}, f2} + {{2{f3[15]}}, f3};
+        mix <= {{2{d1[15]}}, d1} + {{2{d2[15]}}, d2} + {{2{d3[15]}}, d3};
 
     // Output gain, calibrated against MAME over a matched window. Re-measured
     // after jt89 was made unipolar -- a unipolar square carries less AC than a
@@ -246,6 +259,30 @@ module tp84_sound (
 
 endmodule
 
+
+//! DC removal: a running mean subtracted from the signal. The shift sets the
+//! corner at fs / (2*pi*2^15) = 4.3 Hz, far below anything audible, so it
+//! takes the standing offset out without touching the sound. Rounding rather
+//! than truncating the increment keeps the residual under half a count.
+module tp84_dcrm (
+    input  wire               clk,
+    input  wire               reset,
+    input  wire               cen,
+    input  wire signed [15:0] din,
+    output wire signed [15:0] dout
+);
+    localparam int Q = 15;
+    logic signed [31:0] acc;
+    wire  signed [31:0] x   = {din[15], din, {Q{1'b0}}};
+    wire  signed [31:0] err = x - acc;
+    always_ff @(posedge clk) begin
+        if (reset)    acc <= 32'sd0;
+        else if (cen) acc <= acc + ((err + (1 <<< (Q-1))) >>> Q);
+    end
+    wire signed [16:0] y = {din[15], din} - $signed(acc[31:Q]);
+    assign dout = (y >  17'sh0_7fff) ? 16'sh7fff :
+                  (y < -17'sh0_8000) ? 16'sh8000 : y[15:0];
+endmodule
 
 //! One-pole low-pass matching MAME's filter_rc LOWPASS_3R. A coefficient of
 //! zero means no capacitor is switched in, which MAME treats as a pass-through.
