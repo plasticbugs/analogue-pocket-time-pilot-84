@@ -291,7 +291,7 @@ Factory defaults: DSW1 = 0xFF, DSW2 = 0x32.
 | 388d18.1f | 256 | 61d2d398 | proms 0x300 char lut |
 | 388j17.16c | 256 | 13c4e198 | proms 0x400 sprite lut |
 
-Total 90,880 bytes — still small enough to live entirely in block RAM.
+Total 99,584 bytes — still small enough to live entirely in block RAM.
 
 ## 7. Open questions
 

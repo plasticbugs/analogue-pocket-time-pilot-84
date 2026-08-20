@@ -1,0 +1,52 @@
+<misterromdescription>
+    <name>Time Pilot '84</name>
+    <setname>tp84</setname>
+    <year>1984</year>
+    <manufacturer>Konami</manufacturer>
+    <category>Arcade</category>
+    <rbf>tp84</rbf>
+
+    <!-- Flat 8-bit image. Every region is byte-wide, so no interleaving is
+         needed; the core copies each region into its own block RAM at load.
+
+           0x00000  32768  master 6809E program  (maps to 8000-FFFF)
+           0x08000   8192  slave 6809E program   (maps to E000-FFFF)
+           0x0A000   8192  sound Z80 program     (maps to 0000-1FFF)
+           0x0C000  16384  tile gfx
+           0x10000  32768  sprite gfx
+           0x18000    256  palette PROM, red
+           0x18100    256  palette PROM, green
+           0x18200    256  palette PROM, blue
+           0x18300    256  character lookup PROM
+           0x18400    256  sprite lookup PROM
+           0x18500        total
+    -->
+    <rom index="0" zip="tp84.zip" md5="31d5548bb3b0b8940ddc42e3422e583e">
+        <!-- master 6809E -->
+        <part name="388_f04.7j"  crc="605f61c7"/>
+        <part name="388_05.8j"   crc="4b4629a4"/>
+        <part name="388_f06.9j"  crc="dbd5333b"/>
+        <part name="388_07.10j"  crc="a45237c4"/>
+        <!-- slave 6809E -->
+        <part name="388_f08.10d" crc="36462ff1"/>
+        <!-- sound Z80 -->
+        <part name="388j13.6a"   crc="c44414da"/>
+        <!-- tiles -->
+        <part name="388_h02.2j"  crc="05c7508f"/>
+        <part name="388_d01.1j"  crc="498d90b7"/>
+        <!-- sprites -->
+        <part name="388_e09.12a" crc="cd682f30"/>
+        <part name="388_e10.13a" crc="888d4bd6"/>
+        <part name="388_e11.14a" crc="9a220b39"/>
+        <part name="388_e12.15a" crc="fac98397"/>
+        <!-- PROMs: red, green, blue, char lookup, sprite lookup -->
+        <part name="388d14.2c"   crc="d737eaba"/>
+        <part name="388d15.2d"   crc="2f6a9a2a"/>
+        <part name="388d16.1e"   crc="2e21329b"/>
+        <part name="388d18.1f"   crc="61d2d398"/>
+        <part name="388j17.16c"  crc="13c4e198"/>
+    </rom>
+
+    <!-- Factory DIP defaults: DSW1 (SW1) = 0xFF, DSW2 (SW2) = 0x32 -->
+    <buttons names="Fire,Missile,Start 1P,Start 2P,Coin" default="B,A,Start,Y,Select" count="2"/>
+</misterromdescription>
