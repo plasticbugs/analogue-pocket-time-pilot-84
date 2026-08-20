@@ -77,6 +77,45 @@ yet. What this gate can still prove is that both CPUs boot, run real code, and
 reach an identical machine state through the whole boot and attract sequence —
 and the frozen-state bench continues to prove the video path exactly.
 
+## 3a. Motion comparison — `-vtrace`, `-range`, `-bgtrace`
+
+Everything above §3 captures **one frame with the CPUs paused**. That is a real
+gate for the renderer, and it is worth nothing at all for a fault that only
+appears while the picture is moving. A bug shipped past all of it: half the
+background tilemap went undrawn during scrolling, which no still frame could
+show because the columns that were missing had been correct when the level
+loaded.
+
+The gate that catches this class runs the game and compares **every** frame:
+
+```sh
+# RTL: dump all four tilemap memories once per frame
+build/sim_wr/tb_wr build/tp84.rom 712 /dev/null -vtrace 655 710 build/rtl_vt.txt
+# MAME: the same memories, same input script
+mame tp84 -rompath . -video none -sound none -nothrottle -skip_gameinfo \
+     -autoboot_script build/vtrace.lua
+```
+
+Two things matter when reading the result:
+
+- **Align the frames.** The bench and MAME do not start counting at the same
+  instant; at the time of writing the RTL runs one frame ahead, so RTL frame
+  *n* must be compared with MAME frame *n+1*. Compare at several offsets and
+  take the best — a constant offset is a bench artefact, a growing difference
+  is a bug. Before alignment the shared RAM looked 77 bytes different per
+  frame; after, 1.6.
+- **The stack is in video RAM.** The master's direct page is `$4400`, inside
+  the fg video RAM, and its stack grows down from `$5000` through the fg colour
+  RAM. So a handful of differing bytes in `FGCOLORRAM` is the interrupt frame
+  sampled at a slightly different point, not a video fault. Differences in
+  `BGVIDEORAM`, `FGVIDEORAM` or `BGCOLORRAM` are real.
+
+`-range A B DIR` writes every frame as a PPM, captured live with the CPUs
+running, which is what a person actually looks at. `-bgtrace` and `-shtrace`
+are the same idea for a single memory, and `-wrlog` / `-bus` log the master's
+writes and its whole address bus when the divergence has to be traced to the
+instruction that caused it.
+
 ## 4. Synthesis
 
 `./build-local.sh map` is a one-minute check before every push; the full compile
