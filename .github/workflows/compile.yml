@@ -52,6 +52,20 @@ jobs:
       - name: Show resource summary
         run: cat projects/output_files/tp84_pocket.fit.summary || true
 
+      - name: Check the 6809 clocks got global networks
+        run: |
+          fit=projects/output_files/tp84_pocket.fit.rpt
+          echo "--- clock routing for cpu_e / cpu_q ---"
+          grep -E 'cpu_e|cpu_q' "$fit" | grep -i clock | head -4
+          if grep -E 'cpu_e ;' "$fit" | grep -qi 'Global Clock'; then
+            echo "cpu_e is on a global clock network"
+          else
+            echo
+            echo "cpu_e is NOT on a global clock network -- the 6809s will have"
+            echo "uncontrolled clock skew and will misbehave on hardware."
+            exit 1
+          fi
+
       - name: Check timing closed
         run: |
           sta=projects/output_files/tp84_pocket.sta.summary

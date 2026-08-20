@@ -33,6 +33,10 @@ static inline void tick() {
 static int FRAME_SKEW = 2;
 static bool two_player = false;
 static bool bgpoll = false;
+static int reset_at = -1;      // -resetat N: pulse reset after frame N
+// The Interact reset holds for 8000 clk_74a cycles = 107.7 us; at 49.152 MHz
+// that is 5294 clk_sys cycles.
+static const int RESET_CLKS = 5294;
 
 static void set_inputs(int frame) {
     unsigned sys = 0xff, p1 = 0xff;
@@ -89,6 +93,7 @@ int main(int argc, char **argv) {
         else if (!strcmp(argv[i], "-quiet")) quiet = true;
         else if (!strcmp(argv[i], "-skew") && i + 1 < argc) FRAME_SKEW = atoi(argv[++i]);
         else if (!strcmp(argv[i], "-bgpoll")) bgpoll = true;
+        else if (!strcmp(argv[i], "-resetat") && i + 1 < argc) reset_at = atoi(argv[++i]);
     }
 
     dut = new Vtp84_main;
@@ -111,6 +116,9 @@ int main(int argc, char **argv) {
     dut->reset = 0;
 
     int vbl = 0;
+    bool did_reset = false;
+    long long vec_fetches = 0;
+    int prev_e = 0;
     set_inputs(-FRAME_SKEW);
     // Per-frame view of which tilemap columns the game rewrites, in the same
     // shape as tools/bgpoll.lua, so RTL and MAME can be lined up directly.
@@ -118,9 +126,28 @@ int main(int argc, char **argv) {
     memset(prev, 0xff, sizeof prev);
     while (vbl < target + FRAME_SKEW) {
         tick();
+        // count reset-vector fetches so a reboot can be seen, not inferred
+        {
+            int e = dut->rootp->tp84_main__DOT__cpu_e;
+            // only FFFE: the 6809 parks on FFFF during dead cycles, so counting
+            // that counts almost every idle cycle
+            if (prev_e && !e && dut->dbg_pc_main == 0xfffe)
+                vec_fetches++;
+            prev_e = e;
+        }
         if (dut->vblank_rise_o) {
             vbl++;
             set_inputs(vbl - FRAME_SKEW);
+            if (reset_at >= 0 && !did_reset && (vbl - FRAME_SKEW) == reset_at) {
+                did_reset = true;
+                long long before = vec_fetches;
+                dut->reset = 1;
+                for (int i = 0; i < RESET_CLKS; i++) tick();
+                dut->reset = 0;
+                printf("[rst] pulsed reset for %d clks after frame %d "
+                       "(reset-vector fetches before=%lld)\n",
+                       RESET_CLKS, reset_at, before);
+            }
             if (bgpoll) {
                 auto &mem = dut->rootp->tp84_main__DOT__u_video__DOT__u_bgv__DOT__mem;
                 int changed = 0, cols[32] = {0};
@@ -190,6 +217,9 @@ int main(int argc, char **argv) {
         fclose(f);
     }
 
+    if (reset_at >= 0)
+        printf("[rst] reset-vector fetches total=%lld  (a reboot should add some)\n",
+               vec_fetches);
     if (!quiet)
         printf("frame %d: wrote %s%s%s  (overrun=%d watchdog=%d mainpc=%04x subpc=%04x "
                "pb=%02x scroll=%d,%d)\n",

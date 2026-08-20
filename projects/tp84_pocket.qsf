@@ -825,3 +825,20 @@ set_instance_assignment -name WEAK_PULL_UP_RESISTOR ON -to bridge_spimosi
 set_instance_assignment -name FAST_OUTPUT_REGISTER ON -to dram_cas_n
 set_instance_assignment -name FAST_OUTPUT_REGISTER ON -to dram_ras_n
 set_instance_assignment -name FAST_OUTPUT_REGISTER ON -to dram_we_n
+
+# ==============================================================================
+# The 6809s' E and Q must be on global clock networks.
+#
+# mc6809i has no system clock: every sequential element in it is clocked by E or
+# Q. The fitter left E driving 696 clock loads on ordinary routing ("Global: no"
+# in the fit report) while clk_74a and clk_74b got GCLK6 and GCLK14. A 696-load
+# clock spread across the fabric on regular routing has large and uncontrolled
+# skew, so registers at opposite ends of the chip see the edge at different
+# times -- which is how a CPU ends up mostly working and intermittently
+# computing the wrong thing.
+#
+# This is a hardware-only fault by construction: a simulator has no routing
+# delay, so no amount of Verilator will show it.
+# ==============================================================================
+set_instance_assignment -name GLOBAL_SIGNAL "GLOBAL CLOCK" -to "core_top:ic|tp84_core:tp|tp84_main:u_main|cpu_e"
+set_instance_assignment -name GLOBAL_SIGNAL "GLOBAL CLOCK" -to "core_top:ic|tp84_core:tp|tp84_main:u_main|cpu_q"
