@@ -1,0 +1,162 @@
+{
+  "interact": {
+    "magic": "APF_VER_1",
+    "variables": [
+      {
+        "name": "Reset Core",
+        "id": 0,
+        "type": "action",
+        "enabled": true,
+        "address": "0xF0000000",
+        "value": 1
+      },
+      {
+        "name": "Screen Shape",
+        "id": 28,
+        "type": "list",
+        "enabled": true,
+        "persist": true,
+        "address": "0xF2000000",
+        "defaultval": 0,
+        "mask": "0xFFFFFFF9",
+        "options": [
+          {
+            "name": "Arcade 3:4",
+            "value": "0x00000000"
+          },
+          {
+            "name": "Fill Screen",
+            "value": "0x00000002"
+          }
+        ]
+      },
+      {
+        "name": "Lives",
+        "id": 20,
+        "type": "list",
+        "enabled": true,
+        "persist": true,
+        "address": "0xF1000000",
+        "defaultval": 0,
+        "mask": "0xFFFFFCFF",
+        "options": [
+          {
+            "name": "3",
+            "value": "0x00000000"
+          },
+          {
+            "name": "2",
+            "value": "0x00000100"
+          },
+          {
+            "name": "5",
+            "value": "0x00000300"
+          },
+          {
+            "name": "7",
+            "value": "0x00000200"
+          }
+        ]
+      },
+      {
+        "name": "Bonus Life",
+        "id": 21,
+        "type": "list",
+        "enabled": true,
+        "persist": true,
+        "address": "0xF1000000",
+        "defaultval": 0,
+        "mask": "0xFFFFE7FF",
+        "options": [
+          {
+            "name": "20000 then every 60000",
+            "value": "0x00000000"
+          },
+          {
+            "name": "10000 then every 50000",
+            "value": "0x00000800"
+          },
+          {
+            "name": "30000 then every 70000",
+            "value": "0x00001800"
+          },
+          {
+            "name": "40000 then every 80000",
+            "value": "0x00001000"
+          }
+        ]
+      },
+      {
+        "name": "Difficulty",
+        "id": 22,
+        "type": "list",
+        "enabled": true,
+        "persist": true,
+        "address": "0xF1000000",
+        "defaultval": 0,
+        "mask": "0xFFFF9FFF",
+        "options": [
+          {
+            "name": "Hard (factory)",
+            "value": "0x00000000"
+          },
+          {
+            "name": "Easy",
+            "value": "0x00004000"
+          },
+          {
+            "name": "Normal",
+            "value": "0x00006000"
+          },
+          {
+            "name": "Hardest",
+            "value": "0x00002000"
+          }
+        ]
+      },
+      {
+        "name": "Demo Sounds",
+        "id": 23,
+        "type": "list",
+        "enabled": true,
+        "persist": true,
+        "address": "0xF1000000",
+        "defaultval": 0,
+        "mask": "0xFFFF7FFF",
+        "options": [
+          {
+            "name": "On",
+            "value": "0x00000000"
+          },
+          {
+            "name": "Off",
+            "value": "0x00008000"
+          }
+        ]
+      },
+      {
+        "name": "Cocktail Cabinet",
+        "id": 24,
+        "type": "check",
+        "enabled": true,
+        "persist": true,
+        "address": "0xF1000000",
+        "defaultval": 0,
+        "mask": "0xFFFFFBFF",
+        "value": "0x00000400"
+      },
+      {
+        "name": "Free Play",
+        "id": 25,
+        "type": "check",
+        "enabled": true,
+        "persist": true,
+        "address": "0xF1000000",
+        "defaultval": 0,
+        "mask": "0xFFFFFFF0",
+        "value": "0x0000000F"
+      }
+    ],
+    "messages": []
+  }
+}

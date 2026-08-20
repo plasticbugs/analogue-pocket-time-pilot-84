@@ -43,12 +43,39 @@ module tp_dpram #(parameter AW = 10, parameter DW = 8) (
     // Assignment pattern rather than a for loop: Quartus caps constant loops
     // at 5000 iterations, and the program ROM alone is 32768 words.
     initial mem = '{default: '0};
+
+    // One always block PER PORT, which is Altera's true dual-port template.
+    // Writing both ports from a single block infers fine while only one of them
+    // writes, and silently fails the moment both do: the 2 KB shared RAM
+    // between the two 6809s came out as 31,568 ALUTs and 16,400 flip-flops --
+    // 73% of the whole design and the reason it would not fit.
+    // Write-through on each port, not read-old-data: an M10K in true dual-port
+    // mode cannot return the old contents on a write, so the read-old form
+    // falls back to logic and the 2 KB shared RAM came out as 31,568 ALUTs and
+    // 16,400 flip-flops -- 73% of the design, and why it would not fit.
+    //
+    // Nothing here reads and writes the same port in the same cycle: a CPU bus
+    // cycle is a read or a write, never both, and the video ports are
+    // read-only. So which data a port returns on its own write is unobservable.
+    /* verilator lint_off MULTIDRIVEN */
     always_ff @(posedge clk) begin
-        if (a_we) mem[a_addr] <= a_d;
-        a_q <= mem[a_addr];
-        if (b_we) mem[b_addr] <= b_d;
-        b_q <= mem[b_addr];
+        if (a_we) begin
+            mem[a_addr] <= a_d;
+            a_q         <= a_d;
+        end else begin
+            a_q <= mem[a_addr];
+        end
     end
+
+    always_ff @(posedge clk) begin
+        if (b_we) begin
+            mem[b_addr] <= b_d;
+            b_q         <= b_d;
+        end else begin
+            b_q <= mem[b_addr];
+        end
+    end
+    /* verilator lint_on MULTIDRIVEN */
 endmodule
 
 `default_nettype wire

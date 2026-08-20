@@ -1,0 +1,26 @@
+# ==============================================================================
+# Time Pilot '84 core RTL
+# ==============================================================================
+set_global_assignment -name SYSTEMVERILOG_FILE [file join $::quartus(qip_path) "tp84_core.sv"]
+set_global_assignment -name SYSTEMVERILOG_FILE [file join $::quartus(qip_path) "tp84_main.sv"]
+set_global_assignment -name SYSTEMVERILOG_FILE [file join $::quartus(qip_path) "tp84_video.sv"]
+set_global_assignment -name SYSTEMVERILOG_FILE [file join $::quartus(qip_path) "tp84_sound.sv"]
+set_global_assignment -name SYSTEMVERILOG_FILE [file join $::quartus(qip_path) "tp_ram.sv"]
+set_global_assignment -name VERILOG_FILE       [file join $::quartus(qip_path) "tv80s_cen.v"]
+
+# mc6809i MC6809E (BSD, https://github.com/cavnex/mc6809) -- the same source the
+# Verilator benches use, so what is verified is what is synthesised.
+set_global_assignment -name VERILOG_FILE [file join $::quartus(qip_path) "../modules/cpu-mc6809/mc6809i.v"]
+
+# tv80 Z80 (MIT, https://github.com/hutch31/tv80)
+set_global_assignment -name VERILOG_FILE [file join $::quartus(qip_path) "../modules/cpu-tv80/tv80_core.v"]
+set_global_assignment -name VERILOG_FILE [file join $::quartus(qip_path) "../modules/cpu-tv80/tv80_alu.v"]
+set_global_assignment -name VERILOG_FILE [file join $::quartus(qip_path) "../modules/cpu-tv80/tv80_mcode.v"]
+set_global_assignment -name VERILOG_FILE [file join $::quartus(qip_path) "../modules/cpu-tv80/tv80_reg.v"]
+
+# jt89 SN76489 (GPLv3, https://github.com/jotego/jt89)
+set_global_assignment -name VERILOG_FILE [file join $::quartus(qip_path) "../modules/sound-jt89/jt89.v"]
+set_global_assignment -name VERILOG_FILE [file join $::quartus(qip_path) "../modules/sound-jt89/jt89_tone.v"]
+set_global_assignment -name VERILOG_FILE [file join $::quartus(qip_path) "../modules/sound-jt89/jt89_noise.v"]
+set_global_assignment -name VERILOG_FILE [file join $::quartus(qip_path) "../modules/sound-jt89/jt89_vol.v"]
+set_global_assignment -name VERILOG_FILE [file join $::quartus(qip_path) "../modules/sound-jt89/jt89_mixer.v"]
