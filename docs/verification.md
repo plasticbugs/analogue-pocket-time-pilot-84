@@ -116,6 +116,39 @@ are the same idea for a single memory, and `-wrlog` / `-bus` log the master's
 writes and its whole address bus when the divergence has to be traced to the
 instruction that caused it.
 
+## 3b. Audio — `sim/run_audio.sh`, `-log`
+
+Level is checked by decimating both the core's recording and a MAME
+`-wavwrite` of the same window to 8 kHz, removing DC, and comparing RMS. The
+shipped gain lands +0.41 dB on MAME.
+
+Level agreement is necessary and not sufficient, and the gap is worth naming:
+a core can match MAME's RMS and its band ratios exactly while sounding wrong
+at every note boundary, because RMS says nothing about what the waveform does
+in the moment a channel is switched on or off. Two faults were found by ear
+after passing the level check, and neither would have been caught by it:
+
+- **Resampling.** The 48 kHz handover point-sampled a box average whose nulls
+  did not line up with the output rate, so chip harmonics near 48 kHz folded
+  down near DC. Measured against a high-order reference decimation of the same
+  recording, error was -21.4 dB relative to signal; averaging over the actual
+  tick interval and adding a two-point average took it to -29.8 dB.
+- **Polarity.** jt89 drove each channel bipolar, so switching a channel off
+  moved its output to 0 -- the midpoint of its own swing, a level that waveform
+  never occupies. Every note-off was a splice to a mismatched point. The real
+  SN76489A and MAME's sn76496 are unipolar, where a switch-off lands on 0,
+  which the square wave already visits every cycle.
+
+`sim/run_audio.sh` with `-log` dumps every sound-chip and filter write against
+the audio sample index, which is how the second one was pinned down: the pop at
+t=0.7729s followed a channel volume going 15 -> 4 half a millisecond earlier.
+Note that the game writes each byte to $C000 first -- an address MAME maps as
+`nopw()` -- and then to the real chip, so writes appear in the log in pairs.
+
+Do not try to diff the two recordings sample by sample. The best normalised
+correlation achievable between them is about +0.4: same music, different
+waveform detail. Compare statistics, and listen.
+
 ## 4. Synthesis
 
 `./build-local.sh map` is a one-minute check before every push; the full compile
