@@ -32,6 +32,7 @@ static inline void tick() {
 // assumed -- see docs/verification.md.
 static int FRAME_SKEW = 2;
 static bool two_player = false;
+static bool bgpoll = false;
 
 static void set_inputs(int frame) {
     unsigned sys = 0xff, p1 = 0xff;
@@ -87,6 +88,7 @@ int main(int argc, char **argv) {
         else if (!strcmp(argv[i], "-2p")) two_player = true;
         else if (!strcmp(argv[i], "-quiet")) quiet = true;
         else if (!strcmp(argv[i], "-skew") && i + 1 < argc) FRAME_SKEW = atoi(argv[++i]);
+        else if (!strcmp(argv[i], "-bgpoll")) bgpoll = true;
     }
 
     dut = new Vtp84_main;
@@ -110,9 +112,32 @@ int main(int argc, char **argv) {
 
     int vbl = 0;
     set_inputs(-FRAME_SKEW);
+    // Per-frame view of which tilemap columns the game rewrites, in the same
+    // shape as tools/bgpoll.lua, so RTL and MAME can be lined up directly.
+    unsigned char prev[1024];
+    memset(prev, 0xff, sizeof prev);
     while (vbl < target + FRAME_SKEW) {
         tick();
-        if (dut->vblank_rise_o) { vbl++; set_inputs(vbl - FRAME_SKEW); }
+        if (dut->vblank_rise_o) {
+            vbl++;
+            set_inputs(vbl - FRAME_SKEW);
+            if (bgpoll) {
+                auto &mem = dut->rootp->tp84_main__DOT__u_video__DOT__u_bgv__DOT__mem;
+                int changed = 0, cols[32] = {0};
+                for (int i = 0; i < 1024; i++) {
+                    unsigned char v = mem[i] & 0xff;
+                    if (v != prev[i]) { prev[i] = v; if (vbl > 1) { changed++; cols[i & 31]++; } }
+                }
+                int gf = vbl - FRAME_SKEW;
+                if (changed && gf >= 250 && gf <= 720) {
+                    printf("[bg] frame %4d: %4d changed ", gf, changed);
+                    int shown = 0;
+                    for (int c = 0; c < 32 && shown < 8; c++)
+                        if (cols[c]) { printf(" c%d:%d", c, cols[c]); shown++; }
+                    printf("\n");
+                }
+            }
+        }
     }
 
     dut->pause = 1;

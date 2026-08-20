@@ -101,5 +101,8 @@ set_multicycle_path -setup -end 16 -from [get_clocks $CLKSYS]      -to [get_cloc
 set_multicycle_path -hold  -end 15 -from [get_clocks $CLKSYS]      -to [get_clocks {cpu_e cpu_q}]
 set_multicycle_path -setup -end 16 -from [get_clocks {cpu_e cpu_q}] -to [get_clocks $CLKSYS]
 set_multicycle_path -hold  -end 15 -from [get_clocks {cpu_e cpu_q}] -to [get_clocks $CLKSYS]
-set_multicycle_path -setup -end 16 -from [get_clocks {cpu_e cpu_q}] -to [get_clocks {cpu_e cpu_q}]
-set_multicycle_path -hold  -end 15 -from [get_clocks {cpu_e cpu_q}] -to [get_clocks {cpu_e cpu_q}]
+# NOT relaxed: E-to-E paths are mc6809i's own internal logic, and those
+# registers advance on every falling edge of E. They have one E period, not
+# sixteen. An earlier version of this file relaxed them along with the
+# cross-domain paths, which is the sort of exception that simulates perfectly
+# and misbehaves only on silicon.

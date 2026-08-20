@@ -966,6 +966,27 @@ module core_top
     //! the flag has survived two synchroniser stages the data has been still
     //! for several cycles, so the capture is always of a settled value.
     //! ------------------------------------------------------------------
+    //! Decimate before the handover, not just sample.
+    //!
+    //! The sound board updates at 894.9 kHz -- 18.6x the 48 kHz the sample is
+    //! handed over at -- and three SN76489As put a lot of energy well above
+    //! 24 kHz. Point-sampling that folds all of it back into the audible band.
+    //! Time Pilot ran its AY through a low-pass before this handover; that step
+    //! was missing here. A 16-sample box average is cheap, puts its first null
+    //! at 55.9 kHz, and needs no multiplier.
+    logic signed [19:0] snd_acc;
+    logic        [3:0]  snd_cnt;
+    logic signed [15:0] snd_avg;
+    always_ff @(posedge clk_sys) if (tp_audio_ce) begin
+        if (snd_cnt == 4'd15) begin
+            snd_avg <= (snd_acc + {{4{tp_audio[15]}}, tp_audio}) >>> 4;
+            snd_acc <= 20'sd0;
+        end else begin
+            snd_acc <= snd_acc + {{4{tp_audio[15]}}, tp_audio};
+        end
+        snd_cnt <= snd_cnt + 4'd1;
+    end
+
     logic signed [15:0] snd_hold;
     logic               snd_tog = 1'b0;
     logic        [9:0]  snd_div = 10'd0;
@@ -973,7 +994,7 @@ module core_top
         snd_div <= snd_div + 1'd1;
         if (snd_div == 10'd1023) begin       // 49.152 MHz / 1024 = 48.0 kHz
             snd_div  <= 10'd0;
-            snd_hold <= tp_audio;
+            snd_hold <= snd_avg;
             snd_tog  <= ~snd_tog;
         end
     end

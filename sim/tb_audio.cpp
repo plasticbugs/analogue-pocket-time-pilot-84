@@ -33,7 +33,7 @@ int main(int argc,char**argv){
     for(size_t a=0;a<rom.size();a++){dut->dl_addr=a;dut->dl_data=rom[a];dut->dl_we=1;tick();}
     dut->dl_we=0; for(int i=0;i<64*32;i++) tick();
     dut->reset=0;
-    std::vector<short> pcm; int vbl=0, peak=0;
+    std::vector<short> pcm; int vbl=0, peak=0; long clipped=0;
     set_inputs(-FRAME_SKEW);
     while(vbl-FRAME_SKEW < f1){
         tick();
@@ -41,6 +41,7 @@ int main(int argc,char**argv){
         if(dut->audio_ce && (vbl-FRAME_SKEW)>=f0){
             short v=(short)dut->audio; pcm.push_back(v);
             int a=v<0?-v:v; if(a>peak) peak=a;
+            if(v==32767 || v==-32768) clipped++;
         }
     }
     int rate=(int)(1789773.0/2.0+0.5);
@@ -57,6 +58,8 @@ int main(int argc,char**argv){
     ac=pcm.empty()?0:sqrt(ac/pcm.size());
     printf("%s: %zu samples @ %d Hz  peak=%d dc=%.1f ac_rms=%.1f\n",
            argv[4], pcm.size(), rate, peak, dc, ac);
+    printf("  clipped samples: %ld (%.4f%%)\n", clipped,
+           pcm.empty()?0.0:100.0*clipped/pcm.size());
     printf("  sound board: sn_writes=%u irqs=%u timer=%x filter=%04x\n",
            dut->dbg_sn_writes, dut->dbg_snd_irqs, dut->dbg_snd_timer, dut->dbg_snd_filter);
     return 0;
