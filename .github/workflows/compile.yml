@@ -57,7 +57,9 @@ jobs:
           fit=projects/output_files/tp84_pocket.fit.rpt
           echo "--- clock routing for cpu_e / cpu_q ---"
           grep -E 'cpu_e|cpu_q' "$fit" | grep -i clock | head -4
-          if grep -E 'cpu_e ;' "$fit" | grep -qi 'Global Clock'; then
+          # the report pads names with many spaces before the column separator,
+          # so match the hierarchical name and any run of whitespace
+          if grep -E '\|cpu_e[[:space:]]+;' "$fit" | grep -qi 'Global Clock'; then
             echo "cpu_e is on a global clock network"
           else
             echo
