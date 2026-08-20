@@ -4,6 +4,8 @@
 //   tb_audio <tp84.rom> <first_frame> <last_frame> <out.wav>
 #include "Vtp84_core.h"
 #include "verilated.h"
+#include <cstring>
+#include "Vtp84_core___024root.h"
 #include <cstdio>
 #include <cstdlib>
 #include <cmath>
@@ -25,6 +27,8 @@ int main(int argc,char**argv){
     Verilated::commandArgs(argc,argv);
     if(argc<5){fprintf(stderr,"usage: tb_audio <rom> <f0> <f1> <out.wav>\n");return 2;}
     int f0=atoi(argv[2]), f1=atoi(argv[3]);
+    FILE *logf = nullptr;
+    for (int i=5;i<argc;i++) if(!strcmp(argv[i],"-log") && i+1<argc) logf=fopen(argv[++i],"w");
     FILE*rf=fopen(argv[1],"rb"); fseek(rf,0,SEEK_END); long n=ftell(rf); fseek(rf,0,SEEK_SET);
     std::vector<unsigned char> rom(n); if(fread(rom.data(),1,n,rf)!=(size_t)n) return 1; fclose(rf);
     dut=new Vtp84_core; dut->reset=1; dut->pause=0;
@@ -38,12 +42,34 @@ int main(int argc,char**argv){
     while(vbl-FRAME_SKEW < f1){
         tick();
         if(dut->vblank_rise){ vbl++; set_inputs(vbl-FRAME_SKEW); }
+        {   // log sound-chip and filter writes against the audio sample index
+            auto *rp = dut->rootp;
+            static int pw=0, pf=-1;
+            int wr = rp->tp84_core__DOT__u_sound__DOT__sn_wr;
+            if (wr && !pw && logf) {
+                unsigned a = rp->tp84_core__DOT__u_sound__DOT__cpu_a;
+                unsigned d = rp->tp84_core__DOT__u_sound__DOT__cpu_do & 0xff;
+                const char *what = "data";
+                char buf[64];
+                if (d & 0x80) {
+                    int chn = (d>>5)&3, isvol = (d>>4)&1, v = d&0xf;
+                    snprintf(buf,sizeof buf, isvol ? "ch%d VOL %d%s" : "ch%d tone lo %d%s",
+                             chn, v, (isvol && v==15) ? "  <-- OFF" : "");
+                    what = buf;
+                }
+                fprintf(logf, "%zu sn a=%04x d=%02x %s\n", pcm.size(), a, d, what);
+            }
+            pw = wr;
+            int f = rp->tp84_core__DOT__u_sound__DOT__filt;
+            if (f != pf && logf) { fprintf(logf, "%zu FILTER %03x\n", pcm.size(), f); pf = f; }
+        }
         if(dut->audio_ce && (vbl-FRAME_SKEW)>=f0){
             short v=(short)dut->audio; pcm.push_back(v);
             int a=v<0?-v:v; if(a>peak) peak=a;
             if(v==32767 || v==-32768) clipped++;
         }
     }
+    if (logf) fclose(logf);
     int rate=(int)(1789773.0/2.0+0.5);
     FILE*o=fopen(argv[4],"wb"); unsigned bytes=(unsigned)pcm.size()*2;
     fwrite("RIFF",1,4,o); put32(o,36+bytes); fwrite("WAVE",1,4,o);

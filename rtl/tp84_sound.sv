@@ -223,19 +223,24 @@ module tp84_sound (
     always_ff @(posedge clk) if (cen_fs)
         mix <= {{2{f1[15]}}, f1} + {{2{f2[15]}}, f2} + {{2{f3[15]}}, f3};
 
-    // Output gain, calibrated against MAME over a matched window.
-    localparam [15:0] OUT_GAIN = 16'd33300;
-    wire signed [34:0] scaled = mix * $signed({1'b0, OUT_GAIN});
+    // Output gain, calibrated against MAME over a matched window. Re-measured
+    // after jt89 was made unipolar -- a unipolar square carries less AC than a
+    // bipolar one of the same peak, but the RC network and the three-chip sum
+    // make it not quite a factor of two, so this was measured rather than
+    // scaled: 33300 bipolar and 53530 unipolar both land +0.4 dB on MAME over
+    // the same window.
+    localparam [16:0] OUT_GAIN = 17'd53530;
+    wire signed [35:0] scaled = mix * $signed({1'b0, OUT_GAIN});
 
     always_ff @(posedge clk) begin
         if (reset)       audio <= 16'sd0;
-        else if (cen_fs) audio <= clamp16(scaled[34:16]);
+        else if (cen_fs) audio <= clamp16(scaled[35:16]);
         audio_ce <= cen_fs;
     end
 
-    function automatic signed [15:0] clamp16(input signed [18:0] v);
-        if (v > 19'sh0_7fff)       clamp16 = 16'sh7fff;
-        else if (v < -19'sh0_8000) clamp16 = 16'sh8000;
+    function automatic signed [15:0] clamp16(input signed [19:0] v);
+        if (v > 20'sh0_7fff)       clamp16 = 16'sh7fff;
+        else if (v < -20'sh0_8000) clamp16 = 16'sh8000;
         else                       clamp16 = v[15:0];
     endfunction
 

@@ -54,10 +54,17 @@ always @(*)
         4'd15: max = 8'd0;
     endcase
 
+// LOCAL FIX (not upstream): the SN76489A's output is unipolar -- a channel
+// contributes 0 or +max, never -max. jt89 swung symmetrically about zero,
+// which sounds the same in steady state but is wrong the instant a channel is
+// switched on or off: the output jumps to 0, a level the square wave never
+// occupies, so every note-off is a splice to a mismatched point. Worst on the
+// noise channel, which is never at rest. Unipolar lands on 0, which the
+// waveform already visits every cycle. Matches MAME's sn76496 and the chip.
 always @(posedge clk)
     if( rst )
         snd <= 9'd0;
     else if( clk_en )
-        snd <= din ? {1'b0,max} : -{1'b0,max};
+        snd <= din ? {1'b0,max} : 9'd0;
 
 endmodule
