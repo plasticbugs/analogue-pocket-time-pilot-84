@@ -1971,6 +1971,21 @@ begin
                     else if (Inst1 == OPCODE_INH_SEX)
                     begin
                         a_nxt = {8{b[7]}};
+                        // LOCAL FIX (not upstream): SEX set A but left CC
+                        // untouched, so a following conditional branch used
+                        // whatever N and Z the previous instruction had left.
+                        // Per the MC6809E programming manual SEX sets N and Z
+                        // from the 16-bit result in D and clears V. Since
+                        // A becomes {8{b[7]}}, N is b[7] and D is zero exactly
+                        // when B is zero.
+                        //
+                        // Time Pilot '84 depends on this: its terrain routine
+                        // does SEX then BPL to pick the scroll direction, and
+                        // with a stale N it stopped drawing background columns
+                        // for half of every 256-pixel scroll wrap.
+                        cc_nxt[CC_N_BIT] = b[7];
+                        cc_nxt[CC_Z_BIT] = (b == 8'H00);
+                        cc_nxt[CC_V_BIT] = 1'b0;
                         rLIC = 1'b1; // Instruction done!
                         rAVMA = 1'b1;
                         CpuState_nxt = CPUSTATE_FETCH_I1;

@@ -66,10 +66,17 @@ module tp84_main (
     // with nRESET asserted and never initialises. It then comes out of reset
     // taking a spurious NMI: twelve pushes onto an uninitialised stack, then a
     // vector fetch from FFFC. Hold reset for a few E periods instead.
+    //
+    // The same argument applies to pause, and that one bit me on hardware: the
+    // Analogue OS asserts pause while its menu is open, and the menu is the
+    // only way to reach the Reset Core button. Gating E and Q on pause meant
+    // the reset pulse arrived while the CPUs were frozen, so the game never
+    // rebooted -- it just carried on where it left off when the menu closed.
+    // Run the clocks whenever reset is asserted, paused or not.
     logic [4:0] eq;
     logic       cpu_e, cpu_q;
     always_ff @(posedge clk) begin
-        if (!pause && !dl_we) begin
+        if ((!pause || reset) && !dl_we) begin
             eq <= eq + 5'd1;
             case (eq[4:3])
                 2'd0: cpu_e <= 1'b0;

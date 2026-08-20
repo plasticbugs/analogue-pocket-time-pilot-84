@@ -34,6 +34,39 @@ static int FRAME_SKEW = 2;
 static bool two_player = false;
 static bool bgpoll = false;
 static int reset_at = -1;      // -resetat N: pulse reset after frame N
+// -range A B DIR: dump every frame in [A,B] as DIR/rtl_%04d.ppm, captured
+// live with the CPUs running. Every other capture in this bench pauses the
+// CPUs first, which freezes the scroll registers and the tilemap -- exactly
+// the conditions under which a fault that only appears while scrolling
+// cannot show itself.
+static int range_lo = -1, range_hi = -1;
+static const char *range_dir = nullptr;
+// -bgtrace A B FILE: dump the background tilemap every frame, same format as
+// build/bgtrace.lua, so the two can be diffed frame by frame.
+static int bgt_lo = -1, bgt_hi = -1;
+static const char *bgt_path = nullptr;
+static FILE *bgt_f = nullptr;
+// -wrlog A B: print every master-CPU write into 4000-4FFF over frames [A,B],
+// with the PC that issued it.
+static int wr_lo = -1, wr_hi = -1;
+// -shtrace A B FILE: the master/slave shared RAM every frame. It is the
+// master's only work RAM, so the first divergence there is upstream of any
+// tilemap symptom.
+static int sh_lo = -1, sh_hi = -1;
+static const char *sh_path = nullptr;
+static FILE *sh_f = nullptr;
+// -bus A B FILE: the master's address bus at every E falling edge over frames
+// [A,B]. Diffing a frame that draws a tilemap column against one that should
+// points straight at the branch that goes the wrong way.
+static int bus_lo = -1, bus_hi = -1;
+static const char *bus_path = nullptr;
+static FILE *bus_f = nullptr;
+// -vtrace A B FILE: all four tilemap memories every frame. The master's
+// direct page is 4400, inside the fg video RAM, so game variables live here
+// too and a divergence is not necessarily a video symptom.
+static int vt_lo = -1, vt_hi = -1;
+static const char *vt_path = nullptr;
+static FILE *vt_f = nullptr;
 // The Interact reset holds for 8000 clk_74a cycles = 107.7 us; at 49.152 MHz
 // that is 5294 clk_sys cycles.
 static const int RESET_CLKS = 5294;
@@ -94,6 +127,24 @@ int main(int argc, char **argv) {
         else if (!strcmp(argv[i], "-skew") && i + 1 < argc) FRAME_SKEW = atoi(argv[++i]);
         else if (!strcmp(argv[i], "-bgpoll")) bgpoll = true;
         else if (!strcmp(argv[i], "-resetat") && i + 1 < argc) reset_at = atoi(argv[++i]);
+        else if (!strcmp(argv[i], "-vtrace") && i + 3 < argc) {
+            vt_lo = atoi(argv[++i]); vt_hi = atoi(argv[++i]); vt_path = argv[++i];
+        }
+        else if (!strcmp(argv[i], "-bus") && i + 3 < argc) {
+            bus_lo = atoi(argv[++i]); bus_hi = atoi(argv[++i]); bus_path = argv[++i];
+        }
+        else if (!strcmp(argv[i], "-shtrace") && i + 3 < argc) {
+            sh_lo = atoi(argv[++i]); sh_hi = atoi(argv[++i]); sh_path = argv[++i];
+        }
+        else if (!strcmp(argv[i], "-wrlog") && i + 2 < argc) {
+            wr_lo = atoi(argv[++i]); wr_hi = atoi(argv[++i]);
+        }
+        else if (!strcmp(argv[i], "-bgtrace") && i + 3 < argc) {
+            bgt_lo = atoi(argv[++i]); bgt_hi = atoi(argv[++i]); bgt_path = argv[++i];
+        }
+        else if (!strcmp(argv[i], "-range") && i + 3 < argc) {
+            range_lo = atoi(argv[++i]); range_hi = atoi(argv[++i]); range_dir = argv[++i];
+        }
     }
 
     dut = new Vtp84_main;
@@ -124,8 +175,48 @@ int main(int argc, char **argv) {
     // shape as tools/bgpoll.lua, so RTL and MAME can be lined up directly.
     unsigned char prev[1024];
     memset(prev, 0xff, sizeof prev);
+    std::vector<unsigned char> live;
+    int live_prev_ce = 0;
+    live.reserve(256 * 224 * 3);
     while (vbl < target + FRAME_SKEW) {
         tick();
+        if (bus_path) {
+            int gf = vbl - FRAME_SKEW;
+            if (gf >= bus_lo && gf <= bus_hi) {
+                auto *rp = dut->rootp;
+                int e = rp->tp84_main__DOT__cpu_e;
+                static int pe = 0;
+                if (pe && !e) {
+                    if (!bus_f) bus_f = fopen(bus_path, "w");
+                    fprintf(bus_f, "%d %04x %d %02x\n", gf,
+                            rp->tp84_main__DOT__m_addr,
+                            rp->tp84_main__DOT__m_rnw ? 1 : 0,
+                            (rp->tp84_main__DOT__m_rnw ? rp->tp84_main__DOT__m_din
+                                                       : rp->tp84_main__DOT__m_dout) & 0xff);
+                }
+                pe = e;
+            }
+        }
+        if (wr_lo >= 0) {
+            int gf = vbl - FRAME_SKEW;
+            if (gf >= wr_lo && gf <= wr_hi) {
+                auto *rp = dut->rootp;
+                if (rp->tp84_main__DOT__m_wr) {
+                    unsigned a = rp->tp84_main__DOT__m_addr;
+                    if (a >= 0x4000 && a < 0x5000)
+                        printf("[w] f%d %04x <= %02x  pc=%04x\n", gf, a,
+                               rp->tp84_main__DOT__m_dout & 0xff, dut->dbg_pc_main);
+                }
+            }
+        }
+        if (range_dir) {
+            int gf = vbl - FRAME_SKEW;
+            int ce = dut->ce_pix;
+            if (live_prev_ce && !ce && dut->de && gf >= range_lo && gf <= range_hi) {
+                live.push_back(dut->red); live.push_back(dut->green); live.push_back(dut->blue);
+            }
+            live_prev_ce = ce;
+        }
         // count reset-vector fetches so a reboot can be seen, not inferred
         {
             int e = dut->rootp->tp84_main__DOT__cpu_e;
@@ -136,6 +227,61 @@ int main(int argc, char **argv) {
             prev_e = e;
         }
         if (dut->vblank_rise_o) {
+            if (range_dir) {
+                int gf = vbl - FRAME_SKEW;
+                if (gf >= range_lo && gf <= range_hi && (int)live.size() == 256 * 224 * 3) {
+                    char fn[512];
+                    snprintf(fn, sizeof fn, "%s/rtl_%04d.ppm", range_dir, gf);
+                    FILE *lf = fopen(fn, "wb");
+                    if (lf) {
+                        fprintf(lf, "P6\n256 224\n255\n");
+                        fwrite(live.data(), 1, live.size(), lf);
+                        fclose(lf);
+                    }
+                    printf("[f%4d] scroll=%02x,%02x pb=%02x\n", gf,
+                           dut->dbg_scroll_x, dut->dbg_scroll_y, dut->dbg_palette_bank);
+                } else if (gf >= range_lo && gf <= range_hi) {
+                    printf("[f%4d] SHORT FRAME: %zu px\n", gf, live.size() / 3);
+                }
+                live.clear();
+            }
+            if (vt_path) {
+                int gf = vbl - FRAME_SKEW;
+                if (gf >= vt_lo && gf <= vt_hi) {
+                    if (!vt_f) vt_f = fopen(vt_path, "w");
+                    auto *rp = dut->rootp;
+                    fprintf(vt_f, "%d ", gf);
+                    for (int i = 0; i < 1024; i++)
+                        fprintf(vt_f, "%02x", rp->tp84_main__DOT__u_video__DOT__u_bgv__DOT__mem[i] & 0xff);
+                    for (int i = 0; i < 1024; i++)
+                        fprintf(vt_f, "%02x", rp->tp84_main__DOT__u_video__DOT__u_fgv__DOT__mem[i] & 0xff);
+                    for (int i = 0; i < 1024; i++)
+                        fprintf(vt_f, "%02x", rp->tp84_main__DOT__u_video__DOT__u_bgc__DOT__mem[i] & 0xff);
+                    for (int i = 0; i < 1024; i++)
+                        fprintf(vt_f, "%02x", rp->tp84_main__DOT__u_video__DOT__u_fgc__DOT__mem[i] & 0xff);
+                    fprintf(vt_f, "\n");
+                }
+            }
+            if (sh_path) {
+                int gf = vbl - FRAME_SKEW;
+                if (gf >= sh_lo && gf <= sh_hi) {
+                    if (!sh_f) sh_f = fopen(sh_path, "w");
+                    auto &mem = dut->rootp->tp84_main__DOT__u_share__DOT__mem;
+                    fprintf(sh_f, "%d ", gf);
+                    for (int i = 0; i < 2048; i++) fprintf(sh_f, "%02x", mem[i] & 0xff);
+                    fprintf(sh_f, "\n");
+                }
+            }
+            if (bgt_path) {
+                int gf = vbl - FRAME_SKEW;
+                if (gf >= bgt_lo && gf <= bgt_hi) {
+                    if (!bgt_f) bgt_f = fopen(bgt_path, "w");
+                    auto &mem = dut->rootp->tp84_main__DOT__u_video__DOT__u_bgv__DOT__mem;
+                    fprintf(bgt_f, "%d ", gf);
+                    for (int i = 0; i < 1024; i++) fprintf(bgt_f, "%02x", mem[i] & 0xff);
+                    fprintf(bgt_f, "\n");
+                }
+            }
             vbl++;
             set_inputs(vbl - FRAME_SKEW);
             if (reset_at >= 0 && !did_reset && (vbl - FRAME_SKEW) == reset_at) {
@@ -167,6 +313,10 @@ int main(int argc, char **argv) {
         }
     }
 
+    if (bgt_f) fclose(bgt_f);
+    if (sh_f) fclose(sh_f);
+    if (bus_f) fclose(bus_f);
+    if (vt_f) fclose(vt_f);
     dut->pause = 1;
     const int W = 256, H = 224;
     std::vector<unsigned char> img;

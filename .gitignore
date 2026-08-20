@@ -97,3 +97,4 @@ _tmp
 # --- Python ---
 __pycache__/
 *.pyc
+/snap/
