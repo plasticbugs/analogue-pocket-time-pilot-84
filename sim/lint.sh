@@ -80,9 +80,12 @@ verilator --lint-only $FLAGS -Wno-PINMISSING --top-module core_top \
     > "$out2" 2>&1
 set -e
 
-# core_pll is a Quartus megafunction; Verilator has no way to see it, so its
-# MODMISSING is expected rather than a finding.
-top=$(grep -E '^%(Warning|Error)' "$out2" | grep -E ': *target/pocket/' | grep -v MODMISSING || true)
+# core_pll is a Quartus megafunction; Verilator has no way to see it, so this
+# is expected rather than a finding. Match the message text, not the warning
+# code: 5.050 tags it %Error-MODMISSING and 5.020 emits a bare %Error, and
+# filtering on the code let it through CI while passing locally.
+top=$(grep -E '^%(Warning|Error)' "$out2" | grep -E ': *target/pocket/' \
+      | grep -v 'Cannot find file containing module' || true)
 if [ -n "$top" ]; then
     echo
     echo "lint FAILED -- warnings in target/pocket/:"
