@@ -4,7 +4,11 @@
 set -e
 cd "$(dirname "$0")/.."
 OUT=${OUT:-artifacts}
-FRAMES=${FRAMES:-"180 420 900 1500 2100 2700 3300 3900"}
+# 1066 is the worst sprite load this game produces: all 24 sprites land on the
+# same scanline, which happens in about 10% of gameplay frames. The original
+# spread never sampled one, so the sprite engine had never been checked under
+# maximum load.
+FRAMES=${FRAMES:-"180 420 900 1066 1500 2100 2700 3300 3900"}
 rm -rf "$OUT"; mkdir -p "$OUT" build/mamecfg
 for f in $FRAMES; do
     tag=$(printf "%04d" "$f")
