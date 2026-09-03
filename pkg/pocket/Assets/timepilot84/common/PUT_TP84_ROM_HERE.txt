@@ -1,0 +1,9 @@
+Put tp84.rom in this folder.
+
+Build it from your own MAME tp84 romset with the builder shipped
+alongside the core:
+
+    python3 mra_build.py tp84.mra tp84.zip
+
+It checks every ROM's CRC32 and verifies the finished 99,584-byte image,
+so a wrong or bad romset is reported rather than quietly built.
