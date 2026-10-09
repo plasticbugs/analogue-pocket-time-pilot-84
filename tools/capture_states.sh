@@ -12,8 +12,17 @@ FRAMES=${FRAMES:-"180 420 900 1066 1500 2100 2700 3300 3900"}
 rm -rf "$OUT"; mkdir -p "$OUT" build/mamecfg
 for f in $FRAMES; do
     tag=$(printf "%04d" "$f")
+    # Headless: nothing may touch the display.  -video none stops MAME
+    # rendering but not creating a window, and MAME's defaults are fullscreen,
+    # which on macOS throws the desktop to another Space on every run.
+    # SDL_VIDEODRIVER=dummy keeps SDL off the display, -videodriver dummy says
+    # the same through MAME, and -window -nomaximize keeps any window that is
+    # made regardless small.  -seconds_to_run caps the run if the script's
+    # exit is missed (frame / 60 Hz, plus margin).
+    SDL_VIDEODRIVER=dummy \
     TP_OUT="$OUT" TP_FRAME="$f" TP_TAG="$tag" TP_MODE="${TP_MODE:-1p}" \
-    mame tp84 -rompath . -video none -sound none -nothrottle -skip_gameinfo \
+    mame tp84 -rompath . -video none -videodriver dummy -window -nomaximize \
+        -sound none -nothrottle -skip_gameinfo -seconds_to_run $((f / 60 + 30)) \
         -snapshot_directory "$OUT/snap_$tag" -cfg_directory build/mamecfg \
         -nvram_directory build/mamecfg -autoboot_script tools/dumpstate.lua \
         >/dev/null 2>&1
