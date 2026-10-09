@@ -29,12 +29,30 @@ core.
 | SNAC Assignment | the six below |
 | Analogizer H Position | -24 to +8 dots; + moves the picture right along the scan line |
 | Analogizer V Position | -24 to +4 lines; + moves the picture down the frame |
+| Analogizer H Size | -20% to +20%; + wider. With the set on its side, the game's height |
 
 With **Analogizer** off the core behaves exactly as it did without Analogizer
 support. The adapter itself is set up as its wiki's
 [How to use it](https://github.com/RndMnkIII/Analogizer/wiki/How-to-use-it%3F)
 says: SNAC switch in position A, 5 V into its USB-C port, the SCART cable's
 audio jack in the Pocket's headphone socket.
+
+**Width.** "Analogizer H Size" makes the picture narrower or wider about
+its centre, in percent, in the 15 kHz modes (RGBS, RGsB, YPbPr, Y/C): the
+core plays each line back a little faster or slower. With the CRT stood on
+its side, as this board's monitor was, that is the game's height. The
+board starts hsync only 8 dots after the picture, so first centre the
+picture with H Position (about -24), then widen it. Where the two together
+would put picture on the sync or on the colour burst after it, the core
+crops the picture's edge instead, so the set never loses sync. There is
+no vertical equivalent (a CRT's height is its sweep), and the scandoubler
+modes are left alone. How it works is in the template's
+docs/analogizer.md, "Picture width". Bench: at +20% and -20% with the
+picture centred (H Position -24), 224 lines of 2,458 and 1,639 clocks
+(asked 2,458 and 1,638), centred to the clock, every dot in order, held 9
+or 10 (6 or 7) clocks, the lines as far from vsync as at 0; at +20% with H
+Position at either end, csync never low while a dot is drawn and the
+colour burst clear.
 
 **Position.** The two sliders move the picture on the CRT, in the board's
 own dots and lines, for a set whose picture sits off centre (the first one

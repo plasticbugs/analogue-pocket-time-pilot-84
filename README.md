@@ -57,8 +57,9 @@ The core supports RndMnkIII's [Analogizer](https://github.com/RndMnkIII/Analogiz
 adapter: the board's own 15 kHz-class picture (16.0 kHz, 60.6 Hz) out of the
 VGA port as RGBS, RGsB, YPbPr, Y/C, or scandoubled for a VGA monitor, and SNAC
 controllers in. It is set up in the core's own menu (Analogizer, Analogizer
-Video, SNAC Adapter, SNAC Assignment, and H and V Position to centre the
-picture on the CRT); with "Analogizer" off, the default, the core is
+Video, SNAC Adapter, SNAC Assignment, H and V Position to centre the
+picture on the CRT, and H Size for its width -- with the set on its side,
+the game's height); with "Analogizer" off, the default, the core is
 unchanged. The picture is the board's raster, **not rotated**: stand the CRT
 on its side as the cabinet's monitor was (turned clockwise, top to the
 right). Because the core declares a cartridge adapter, the Pocket powers the
