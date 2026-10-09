@@ -51,6 +51,21 @@ screen; it reads the choice every frame, so it switches live.
 `aspect_w`/`aspect_h` in `video.json` describe the raster *before* rotation, so
 the arcade entry is written `10:9`, not `3:4` — measured on the Time Pilot core.
 
+## Analogizer
+
+The core supports RndMnkIII's [Analogizer](https://github.com/RndMnkIII/Analogizer)
+adapter: the board's own 15 kHz-class picture (16.0 kHz, 60.6 Hz) out of the
+VGA port as RGBS, RGsB, YPbPr, Y/C, or scandoubled for a VGA monitor, and SNAC
+controllers in. It is set up in the core's own menu (Analogizer, Analogizer
+Video, SNAC Adapter, SNAC Assignment, and H and V Position to centre the
+picture on the CRT); with "Analogizer" off, the default, the core is
+unchanged. The picture is the board's raster, **not rotated**: stand the CRT
+on its side as the cabinet's monitor was (turned clockwise, top to the
+right). Because the core declares a cartridge adapter, the Pocket powers the
+slot: take any game cartridge out first. [docs/analogizer.md](docs/analogizer.md)
+has the modes, the controller assignments, and what has and has not been
+checked (the path is proven in simulation; nothing on hardware yet).
+
 ## How it is verified
 
 Everything is checked against MAME; see [docs/verification.md](docs/verification.md).
@@ -61,6 +76,7 @@ Everything is checked against MAME; see [docs/verification.md](docs/verification
 | `sim/run_video.sh` | the video RTL matches that model, pixel for pixel | ~10 s |
 | `sim/run_system.sh` | both 6809s boot and reach MAME's exact machine state | minutes |
 | `sim/run_audio.sh` | the sound board's level against MAME's recording | minutes |
+| `sim/run_analogizer.sh` | the Analogizer path, read at the cartridge pins | ~2 min |
 
 Current status: **0 differing pixels on ten frozen states**, video memory
 **byte-identical to MAME through boot and attract mode**, and audio within
@@ -108,5 +124,12 @@ Needs Docker and the `raetro/quartus:pocket` image. CI does the same on push.
   the original scanline generator; **Analogue** — the openFPGA APF reference
   `core_top`.
 * MAME's `tp84` driver by Aaron Giles, used as the oracle throughout.
+* **RndMnkIII** -- the [Analogizer](https://github.com/RndMnkIII/Analogizer)
+  adapter and its `openFPGA_Pocket_Analogizer` module
+  (`target/pocket/analogizer/`, vendored verbatim from his MiraxPocket core at
+  9dfdd2b, GPL-3.0-or-later), with the work it carries: **Mike Simone**'s Y/C
+  encoder, **Sorgelig** and **Ludvig Strigeus**'s scandoubler and HQ2x, and the
+  SNAC controller code it credits. The wrapper and bench around it come from
+  the pocket-core-template.
 
 This core is GPLv3, following jt89.

@@ -76,6 +76,8 @@ verilator --lint-only $FLAGS -Wno-PINMISSING --top-module core_top \
     modules/sound-jt89/jt89.v modules/sound-jt89/jt89_tone.v \
     modules/sound-jt89/jt89_noise.v modules/sound-jt89/jt89_vol.v \
     modules/sound-jt89/jt89_mixer.v \
+    target/pocket/pocket_analogizer.sv \
+    target/pocket/analogizer/*.v target/pocket/analogizer/*.sv sim/ps2_keyboard_stub.v \
     target/pocket/core_top.sv \
     > "$out2" 2>&1
 set -e
@@ -85,7 +87,8 @@ set -e
 # code: 5.050 tags it %Error-MODMISSING and 5.020 emits a bare %Error, and
 # filtering on the code let it through CI while passing locally.
 top=$(grep -E '^%(Warning|Error)' "$out2" | grep -E ': *target/pocket/' \
-      | grep -v 'Cannot find file containing module' || true)
+      | grep -v 'Cannot find file containing module' \
+      | grep -v -E '^%Warning[^ ]*: *target/pocket/analogizer/' || true)
 if [ -n "$top" ]; then
     echo
     echo "lint FAILED -- warnings in target/pocket/:"
@@ -93,5 +96,25 @@ if [ -n "$top" ]; then
     exit 1
 fi
 
+# Third pass: the Analogizer wrapper on its own, with the adapter's vendored
+# module behind it and a stand-in for its one VHDL file.  The vendored files
+# are kept as upstream wrote them (target/pocket/analogizer/, VENDOR.md), so
+# their warnings are dropped by path, as are the stand-in's; their errors are not.
+out3=$tmp/lint_ana.out
+set +e
+verilator --lint-only $FLAGS -Wno-PROCASSWIRE --top-module pocket_analogizer \
+    target/pocket/pocket_analogizer.sv platform/pocket/helpers/synch_3.sv \
+    target/pocket/analogizer/*.v target/pocket/analogizer/*.sv sim/ps2_keyboard_stub.v \
+    > "$out3" 2>&1
+set -e
+ana=$(grep -E '^%(Warning|Error)' "$out3" | grep -v 'Exiting due to' \
+      | grep -v -E '^%Warning[^ ]*: *((target/pocket/analogizer|platform/pocket)/|sim/ps2_keyboard_stub)' || true)
+if [ -n "$ana" ]; then
+    echo
+    echo "lint FAILED -- the Analogizer wrapper:"
+    echo "$ana"
+    exit 1
+fi
+
 echo
-echo "lint clean (warnings from vendored modules/ and platform/ ignored)"
+echo "lint clean (warnings from vendored modules/, platform/ and target/pocket/analogizer/ ignored)"

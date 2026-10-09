@@ -98,3 +98,7 @@ _tmp
 __pycache__/
 *.pyc
 /snap/
+
+# --- the Analogizer bench (sim/run_analogizer.sh) ---
+sim/obj_*/
+sim/obj_*.log
