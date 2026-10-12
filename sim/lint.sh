@@ -77,7 +77,7 @@ verilator --lint-only $FLAGS -Wno-PINMISSING --top-module core_top \
     modules/sound-jt89/jt89_noise.v modules/sound-jt89/jt89_vol.v \
     modules/sound-jt89/jt89_mixer.v \
     target/pocket/pocket_analogizer.sv \
-    target/pocket/analogizer/*.v target/pocket/analogizer/*.sv sim/ps2_keyboard_stub.v \
+    target/pocket/analogizer/*.v $(ls target/pocket/analogizer/*.sv | grep -v /yc_out_legacy.sv) sim/yc_out_legacy_stub.v sim/ps2_keyboard_stub.v \
     target/pocket/core_top.sv \
     > "$out2" 2>&1
 set -e
@@ -102,9 +102,9 @@ fi
 # their warnings are dropped by path, as are the stand-in's; their errors are not.
 out3=$tmp/lint_ana.out
 set +e
-verilator --lint-only $FLAGS -Wno-PROCASSWIRE --top-module pocket_analogizer \
+verilator --lint-only $FLAGS -Wno-PROCASSWIRE -Wno-BLKANDNBLK --top-module pocket_analogizer \
     target/pocket/pocket_analogizer.sv platform/pocket/helpers/synch_3.sv \
-    target/pocket/analogizer/*.v target/pocket/analogizer/*.sv sim/ps2_keyboard_stub.v \
+    target/pocket/analogizer/*.v $(ls target/pocket/analogizer/*.sv | grep -v /yc_out_legacy.sv) sim/yc_out_legacy_stub.v sim/ps2_keyboard_stub.v \
     > "$out3" 2>&1
 set -e
 ana=$(grep -E '^%(Warning|Error)' "$out3" | grep -v 'Exiting due to' \

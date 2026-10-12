@@ -65,7 +65,7 @@ on its side as the cabinet's monitor was (turned clockwise, top to the
 right). Because the core declares a cartridge adapter, the Pocket powers the
 slot: take any game cartridge out first. [docs/analogizer.md](docs/analogizer.md)
 has the modes, the controller assignments, and what has and has not been
-checked (the path is proven in simulation; nothing on hardware yet).
+checked. Confirmed on a Pocket with an Analogizer and a CRT (0.2.0).
 
 ## How it is verified
 
